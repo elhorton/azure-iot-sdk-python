@@ -761,8 +761,9 @@ class ReconnectStage(PipelineStage):
                                 this.name, op.name
                             )
                         )
-                        this.virtually_conencted = False
+                        this.virtually_connected = False
 
+            op.add_callback(on_connect_complete)
             self.send_op_down(op)
 
         elif isinstance(op, pipeline_ops_base.DisconnectOperation):

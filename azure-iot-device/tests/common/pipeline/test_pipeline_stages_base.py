@@ -1840,18 +1840,39 @@ class TestReconnectStageRunOpWithConnectOperation(ReconnectStageTestConfig, Stag
     def op(self, mocker):
         return pipeline_ops_base.ConnectOperation(callback=mocker.MagicMock())
 
-    @pytest.mark.it(
-        "Sets the 'virtually_connected' attribute to True, to signify that the stage is now virtually connected"
-    )
-    def test_virtual_connection_change(self, stage, op):
-        stage.run_op(op)
-        assert stage.virtually_connected
-
     @pytest.mark.it("Sends the operation down the pipeline")
     def test_sends_op_down(self, mocker, stage, op):
         stage.run_op(op)
         assert stage.send_op_down.call_count == 1
         assert stage.send_op_down.call_args == mocker.call(op)
+
+    @pytest.mark.it("Sets the 'virtually_connected' attribute to True if the op succeeds")
+    def test_virtual_connection_true_on_op_success(self, stage, op):
+        callback_called = threading.Event()
+
+        def callback(op, error):
+            callback_called.set()
+
+        op.add_callback(callback)
+
+        stage.run_op(op)
+        op.complete(error=None)
+        callback_called.wait()
+        assert stage.virtually_connected
+
+    @pytest.mark.it("Sets the 'virtually_connected' attribute to False if the op fails")
+    def test_virtual_connection_false_on_op_failure(self, stage, op, arbitrary_exception):
+        callback_called = threading.Event()
+
+        def callback(op, error):
+            callback_called.set()
+
+        op.add_callback(callback)
+
+        stage.run_op(op)
+        op.complete(error=arbitrary_exception)
+        callback_called.wait()
+        assert not stage.virtually_connected
 
 
 @pytest.mark.describe("ReconnectStage - .run_op() -- Called with DisconnectOperation")
