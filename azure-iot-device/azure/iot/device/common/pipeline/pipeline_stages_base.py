@@ -679,11 +679,7 @@ class RetryStage(PipelineStage):
         """
         if error:
             if self._should_watch_for_retry(op):
-                if type(error) in [
-                    pipeline_exceptions.PipelineTimeoutError,
-                    transport_exceptions.ConnectionDroppedError,
-                    transport_exceptions.ConnectionFailedError,
-                ]:
+                if isinstance(error, pipeline_exceptions.PipelineTimeoutError):
                     return True
         return False
 
@@ -731,7 +727,6 @@ transient_connect_errors = [
     pipeline_exceptions.OperationCancelled,
     pipeline_exceptions.PipelineTimeoutError,
     pipeline_exceptions.OperationError,
-    transport_exceptions.ConnectionFailedError,
     transport_exceptions.ConnectionDroppedError,
 ]
 
@@ -747,7 +742,27 @@ class ReconnectStage(PipelineStage):
     @pipeline_thread.runs_on_pipeline_thread
     def _run_op(self, op):
         if isinstance(op, pipeline_ops_base.ConnectOperation):
-            self.virtually_connected = True
+
+            self_weakref = weakref.ref(self)
+
+            def on_connect_complete(op, error):
+                this = self_weakref()
+                if this:
+                    if not error:
+                        logger.info(
+                            "{}({}): connection succeeded.  Setting virtually_connected to True".format(
+                                this.name, op.name
+                            )
+                        )
+                        this.virtually_connected = True
+                    else:
+                        logger.info(
+                            "{}({}): connection failed.  Setting virtually_connected to False".format(
+                                this.name, op.name
+                            )
+                        )
+                        this.virtually_conencted = False
+
             self.send_op_down(op)
 
         elif isinstance(op, pipeline_ops_base.DisconnectOperation):

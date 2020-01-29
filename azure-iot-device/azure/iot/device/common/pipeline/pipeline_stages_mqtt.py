@@ -287,11 +287,13 @@ class MQTTTransportStage(PipelineStage):
                     )
         else:
             logger.warning("{}: disconnection was unexpected".format(self.name))
-            # Regardless of cause, it is now a ConnectionDroppedError.  log it and swallow it.
-            # Higher layers will see that we're disconencted and reconnect as necessary.
-            e = transport_exceptions.ConnectionDroppedError(cause=cause)
+            # Intuition says this must be a ConnectionDroppedError, but it might be something else,
+            # most notably a ConnectionFailedError because we hit this path if the connection fails
+            # in some circumstances (especially MQTT_ERR_CONN_REFUSED).  The only thing we can do is
+            # log it and swallow it.  There is nothing more to do becaues higher layers will see that
+            # we're disconenctead (via on_disconnected events) and reconnect as necessary.
             handle_exceptions.swallow_unraised_exception(
-                e,
+                cause,
                 log_msg="Unexpected disconnection.  Safe to ignore since other stages will reconnect.",
                 log_lvl="info",
             )

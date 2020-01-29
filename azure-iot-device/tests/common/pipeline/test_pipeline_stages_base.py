@@ -1368,11 +1368,7 @@ retryable_ops = [
     (pipeline_ops_base.ConnectOperation, {"callback": fake_callback}),
 ]
 
-retryable_exceptions = [
-    pipeline_exceptions.PipelineTimeoutError,
-    transport_exceptions.ConnectionDroppedError,
-    transport_exceptions.ConnectionFailedError,
-]
+retryable_exceptions = [pipeline_exceptions.PipelineTimeoutError]
 
 
 class RetryStageTestConfig(object):
@@ -1590,8 +1586,8 @@ class TestRetryStageRetryableOperationCompletedWithRetryableError(RetryStageTest
         assert not op3.completed
 
         op1.complete(error=pipeline_exceptions.PipelineTimeoutError())
-        op2.complete(error=transport_exceptions.ConnectionDroppedError())
-        op3.complete(error=transport_exceptions.ConnectionFailedError())
+        op2.complete(error=pipeline_exceptions.PipelineTimeoutError())
+        op3.complete(error=pipeline_exceptions.PipelineTimeoutError())
 
         # Ops halted
         assert not op1.completed
