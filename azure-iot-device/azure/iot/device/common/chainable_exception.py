@@ -17,13 +17,8 @@ class ChainableException(Exception):
 
     def __str__(self):
         if self.__cause__:
-            return "{cls}:{repr} caused by {cause}".format(
-                cls=super(ChainableException, self).__class__(),
-                repr=super(ChainableException, self).__repr__(),
-                cause=self.__cause__,
+            return "{} caused by {}".format(
+                super(ChainableException, self).__repr__(), self.__cause__.__repr__()
             )
         else:
-            return "{cls}:{repr}".format(
-                cls=super(ChainableException, self).__class__(),
-                repr=super(ChainableException, self).__repr__(),
-            )
+            return super(ChainableException, self).__repr__()
