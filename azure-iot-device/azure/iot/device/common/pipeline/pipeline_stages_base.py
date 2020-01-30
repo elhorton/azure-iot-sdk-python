@@ -737,6 +737,7 @@ class ReconnectStage(PipelineStage):
     def __init__(self):
         super(ReconnectStage, self).__init__()
         self.reconnect_timer = None
+        self.connect_ops_waiting_for_reconnect = []
         self.virtually_connected = False
         self.at_least_one_connection_succeeded = False
         # connect delay is hardcoded for now.  Later, this comes from a retry policy
@@ -767,6 +768,9 @@ class ReconnectStage(PipelineStage):
                                 )
                             )
                             this.virtually_connected = True
+                            op.halt_completion()
+                            this.connect_ops_waiting_for_reconnect.append(op)
+                            this._set_reconnect_timer()
                         else:
                             logger.info(
                                 "{}({}): connection failed.  Setting virtually_connected to False".format(
@@ -820,8 +824,10 @@ class ReconnectStage(PipelineStage):
                                     inner_this.name, error
                                 )
                             )
+                            inner_this._complete_connect_ops_waiting_for_reconnect(error=error)
                     else:
-                        logger.debug("{}: reconnect successful".format(inner_this.name))
+                        logger.info("{}: reconnect successful".format(inner_this.name))
+                        inner_this._complete_connect_ops_waiting_for_reconnect()
 
                 logger.debug("{}: Sending connect operation down".format(this.name))
                 this.send_op_down(pipeline_ops_base.ConnectOperation(on_connect_complete))
@@ -846,10 +852,21 @@ class ReconnectStage(PipelineStage):
             self.reconnect_timer.cancel()
             self.reconnect_timer = None
 
+    def _complete_connect_ops_waiting_for_reconnect(self, error=None):
+        waiting_ops_copy = self.connect_ops_waiting_for_reconnect
+        self.connect_ops_waiting_for_reconnect = []
+        for op in waiting_ops_copy:
+            if error:
+                logger.info("{}: reconnect failed.  Failing connect op".format(self.name))
+            else:
+                logger.info("{}: reconnect succeeded.  Completing connect op".format(self.name))
+            op.complete(error=error)
+
     @pipeline_thread.runs_on_pipeline_thread
     def _handle_pipeline_event(self, event):
         if isinstance(event, pipeline_events_base.ConnectedEvent):
             self._clear_reconnect_timer()
+            self._complete_connect_ops_waiting_for_reconnect()
             self.send_event_up(event)
 
         elif isinstance(event, pipeline_events_base.DisconnectedEvent):
