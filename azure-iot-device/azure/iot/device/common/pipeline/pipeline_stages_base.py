@@ -738,6 +738,7 @@ class ReconnectStage(PipelineStage):
         super(ReconnectStage, self).__init__()
         self.reconnect_timer = None
         self.virtually_connected = False
+        self.at_least_one_connection_succeeded = False
         # connect delay is hardcoded for now.  Later, this comes from a retry policy
         self.reconnect_delay = 10
 
@@ -757,13 +758,22 @@ class ReconnectStage(PipelineStage):
                             )
                         )
                         this.virtually_connected = True
+                        this.at_least_one_connection_succeeded = True
                     else:
-                        logger.info(
-                            "{}({}): connection failed.  Setting virtually_connected to False".format(
-                                this.name, op.name
+                        if this.at_least_one_connection_succeeded:
+                            logger.info(
+                                "{}({}): connection failed, but previous connection succeeded.  Setting virtually_connected to True".format(
+                                    this.name, op.name
+                                )
                             )
-                        )
-                        this.virtually_connected = False
+                            this.virtually_connected = True
+                        else:
+                            logger.info(
+                                "{}({}): connection failed.  Setting virtually_connected to False".format(
+                                    this.name, op.name
+                                )
+                            )
+                            this.virtually_connected = False
 
             op.add_callback(on_connect_complete)
             self.send_op_down(op)
