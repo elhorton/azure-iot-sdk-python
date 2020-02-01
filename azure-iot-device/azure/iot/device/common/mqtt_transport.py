@@ -340,6 +340,11 @@ class MQTTTransport(object):
                     host=self._hostname, port=8883, keepalive=DEFAULT_KEEPALIVE
                 )
         except socket.error as e:
+            if (
+                isinstance(e, ssl.SSLCertVerificationError)
+                or "SSLCertVerificationError" in e.strerror
+            ):
+                raise exceptions.TLSExchangeAuthError(cause=e)
             # If the socket can't open (e.g. using iptables REJECT), we get a
             # socket.error.  Convert this into ConnectionFailedError so we can retry
             raise exceptions.ConnectionFailedError(cause=e)

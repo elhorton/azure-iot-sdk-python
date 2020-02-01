@@ -38,3 +38,11 @@ class ProtocolClientError(ChainableException):
     """
 
     pass
+
+
+class TLSExchangeAuthError(ChainableException):
+    """
+    Error returned from protocol client library
+    """
+
+    pass
